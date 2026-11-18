@@ -1,0 +1,39 @@
+---
+- name: Deploy Apache container with Docker
+  hosts: prod
+  become: true
+
+  tasks:
+    - name: Copy Docker install script
+      ansible.builtin.copy:
+        src: install_docker.sh
+        dest: /tmp/install_docker.sh
+        mode: "0755"
+
+    - name: Install Docker if missing
+      ansible.builtin.command: /tmp/install_docker.sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Ensure Docker service is started
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Pull httpd image
+      ansible.builtin.command: docker pull httpd
+      register: pull_result
+      changed_when: >-
+        'Downloaded newer image' in pull_result.stdout or
+        'Pull complete' in pull_result.stdout
+
+    - name: Remove old apache container if present
+      ansible.builtin.command: docker rm -f apache
+      register: rm_result
+      failed_when: false
+      changed_when: rm_result.rc == 0
+
+    - name: Run Apache container on port 80
+      ansible.builtin.command: >-
+        docker run -d --name apache -p 80:80 --restart always httpd
