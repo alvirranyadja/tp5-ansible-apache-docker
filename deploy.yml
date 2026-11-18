@@ -1,39 +1,56 @@
 ---
-- name: Deploy Apache container with Docker
+- name: Deploy custom Apache site with Docker
   hosts: prod
   become: true
+  vars_files:
+    - files/secrets/credentials.vault
 
   tasks:
-    - name: Copy Docker install script
-      ansible.builtin.copy:
-        src: install_docker.sh
-        dest: /tmp/install_docker.sh
-        mode: "0755"
+    - name: Install git and wget with yum (CentOS only)
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - git
+        - wget
+      when: ansible_distribution == "CentOS"
 
-    - name: Install Docker if missing
-      ansible.builtin.command: /tmp/install_docker.sh
+    - name: Install curl
+      yum:
+        name: curl
+        state: present
+
+    - name: Install Docker
+      shell: curl -fsSL https://get.docker.com | sh
       args:
         creates: /usr/bin/docker
 
-    - name: Ensure Docker service is started
-      ansible.builtin.service:
-        name: docker
-        state: started
-        enabled: true
+    - name: Start dockerd if not running
+      shell: pgrep -x dockerd || (nohup dockerd >/tmp/dockerd.log 2>&1 & sleep 3)
+
+    - name: Create web root directory
+      file:
+        path: /opt/webapp
+        state: directory
+        mode: "0755"
+
+    - name: Deploy index.html from template
+      template:
+        src: index.html.j2
+        dest: /opt/webapp/index.html
+        mode: "0644"
 
     - name: Pull httpd image
-      ansible.builtin.command: docker pull httpd
-      register: pull_result
-      changed_when: >-
-        'Downloaded newer image' in pull_result.stdout or
-        'Pull complete' in pull_result.stdout
+      command: docker pull httpd
 
-    - name: Remove old apache container if present
-      ansible.builtin.command: docker rm -f apache
-      register: rm_result
-      failed_when: false
-      changed_when: rm_result.rc == 0
+    - name: Remove old apache container
+      command: docker rm -f apache
+      ignore_errors: yes
 
-    - name: Run Apache container on port 80
-      ansible.builtin.command: >-
-        docker run -d --name apache -p 80:80 --restart always httpd
+    - name: Run Apache with custom page mounted
+      command: >-
+        docker run -d --name apache
+        -p 80:80
+        --restart always
+        -v /opt/webapp/index.html:/usr/local/apache2/htdocs/index.html:ro
+        httpd

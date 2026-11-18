@@ -1,0 +1,11 @@
+# Clés SSH privées — ne jamais pousser
+id_rsa
+id_rsa.pub
+*.pem
+
+# Mot de passe vault en clair local
+.vault_pass
+credentials.vault.local
+
+# Optionnel : si tu ne veux pas versionner le vault chiffré, décommente :
+# files/secrets/credentials.vault

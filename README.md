@@ -1,51 +1,35 @@
-# TP-5 — Déployer un conteneur Apache avec Ansible
+# TP-5 → TP-7 — Ansible : Apache Docker + Vault + SSH
 
-## Objectif
+## Machines lab (exemple)
 
-Depuis une machine Ansible, déployer Apache (`httpd`) dans un conteneur Docker sur un client, port 80.
+| Rôle | IP |
+|------|-----|
+| Ansible (chef) | 10.0.100.4 |
+| Client | 10.0.100.5 |
+| User | admin / admin |
 
-## Machines (lab EazyTraining)
+> Mets à jour `prod.yml` si les IP changent.
 
-| Rôle    | IP         | User / mdp   |
-|---------|------------|--------------|
-| Ansible | 10.0.91.5  | admin/admin  |
-| Client  | 10.0.91.6  | admin/admin  |
+## Contenu
 
-> Si les IP changent sur le lab, mets à jour `prod.yml`.
+- **TP-5** : Docker + conteneur `httpd` port 80
+- **TP-6** : template `bienvenue sur {{ ansible_hostname }}`, boucle yum, volume
+- **TP-7** : `ansible-vault` + clé SSH + `vars_files`
 
-## Fichiers
-
-```text
-webapp/
-├── prod.yml              # inventaire (groupe prod)
-├── group_vars/prod       # login / sudo
-├── install_docker.sh     # install Docker CentOS 7
-├── deploy.yml            # playbook
-└── README.md
-```
-
-## Sur la machine Ansible
+## Lancer
 
 ```bash
-# 1) Récupérer le projet (après push GitHub)
-git clone <URL_DE_TON_REPO> webapp
 cd webapp
-
-# 2) Test connexion
-ansible -i prod.yml prod -m ping
-
-# 3) Déploiement
-ansible-playbook -i prod.yml deploy.yml
-
-# 4) Vérification
-curl http://10.0.91.6
-
-# 5) Lint
-sudo yum install -y python3-pip || true
-pip3 install ansible-lint --user
-ansible-lint deploy.yml
-
-# 6) Debug utile
-ansible-playbook -i prod.yml deploy.yml -vv
-ansible -i prod.yml prod -m setup -a 'filter=ansible_distribution*'
+ansible-playbook -i prod.yml deploy.yml --ask-vault-pass
+curl http://IP_CLIENT
 ```
+
+## Vault
+
+Le fichier `files/secrets/credentials.vault` doit être **chiffré** :
+
+```bash
+ansible-vault encrypt files/secrets/credentials.vault
+```
+
+Exemple non chiffré : `files/secrets/credentials.vault.example`
